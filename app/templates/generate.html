@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Gerar vídeo · Channel Bet{% endblock %}
+{% block head %}{% if active %}<meta http-equiv="refresh" content="10">{% endif %}{% endblock %}
+{% block content %}
+<h1>Gerar vídeo com IA</h1>
+<p class="muted">Usa o MoneyPrinterTurbo para criar roteiro, imagens, narração e legendas. O vídeo pronto entra em <a href="/posts">Postagens</a> como rascunho para você revisar antes de publicar.</p>
+
+<form method="post" action="/generate" class="form card">
+  <label>Tema do vídeo
+    <input name="subject" required maxlength="300" placeholder="Ex.: 5 curiosidades sobre o oceano profundo">
+  </label>
+  <label>Roteiro <small class="muted">(opcional, se vazio a IA escreve)</small>
+    <textarea name="script" rows="4"></textarea>
+  </label>
+  <div class="row">
+    <label>Canal de destino
+      <select name="channel_id">
+        <option value="">Decidir depois</option>
+        {% for c in channels %}<option value="{{ c.id }}">{{ c.title }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Formato
+      <select name="aspect">
+        <option value="9:16">Vertical 9:16 (Shorts)</option>
+        <option value="16:9">Horizontal 16:9</option>
+        <option value="1:1">Quadrado 1:1</option>
+      </select>
+    </label>
+    <label>Voz
+      <select name="voice">
+        {% for v, label in voices %}<option value="{{ v }}">{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+  </div>
+  <div class="actions"><button class="btn btn-primary">Gerar</button></div>
+</form>
+
+<h2>Fila de geração</h2>
+{% if jobs %}
+<table>
+  <thead><tr><th>Tema</th><th>Canal</th><th>Criado</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td>{{ j.subject }}{% if j.error %}<div class="error-text small">{{ j.error }}</div>{% endif %}</td>
+      <td>{{ names.get(j.channel_id, '—') }}</td>
+      <td>{{ j.created_at|dt }}</td>
+      <td>
+        <span class="badge g-{{ j.status }}">{{ JOB_STATUS[j.status] }}</span>
+        {% if j.status == 'processing' %}<progress max="100" value="{{ j.progress }}"></progress>{% endif %}
+      </td>
+      <td class="nowrap">
+        {% if j.post_id %}<a href="/posts/{{ j.post_id }}">Revisar →</a>{% endif %}
+        {% if j.status == 'failed' %}
+        <form method="post" action="/generate/{{ j.id }}/retry" class="inline"><button class="link">Tentar de novo</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Nenhuma geração ainda.</p>
+{% endif %}
+{% endblock %}

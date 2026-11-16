@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Channel Bet{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Channel Bet</a>
+    <nav>
+      <a href="/" class="{{ 'active' if request.url.path == '/' }}">Painel</a>
+      <a href="/posts" class="{{ 'active' if request.url.path.startswith('/posts') }}">Postagens</a>
+      <a href="/generate" class="{{ 'active' if request.url.path.startswith('/generate') }}">Gerar vídeo</a>
+    </nav>
+    <a class="btn btn-primary" href="/oauth/start">+ Conectar canal</a>
+  </header>
+  <main>
+    {% if msg %}<div class="flash ok">{{ msg }}</div>{% endif %}
+    {% if err %}<div class="flash error">{{ err }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }} · Channel Bet{% endblock %}
+{% block content %}
+<p><a href="/posts">← Postagens</a></p>
+<h1>{{ post.title }} <span class="badge s-{{ post.status }}">{{ POST_STATUS[post.status] }}</span></h1>
+{% if post.error %}<div class="flash error">{{ post.error }}</div>{% endif %}
+
+<div class="split">
+  <div>
+    <video src="/media/{{ post.id }}" controls preload="metadata" class="preview"></video>
+    {% if post.youtube_video_id %}
+      <p><a href="https://youtu.be/{{ post.youtube_video_id }}" target="_blank" rel="noopener">Ver no YouTube ↗</a></p>
+    {% endif %}
+  </div>
+
+  {% if post.status in ('uploading', 'uploaded') %}
+  <div class="card">
+    <p>Este vídeo já foi enviado. Edite título e descrição pelo YouTube Studio.</p>
+  </div>
+  {% else %}
+  <form method="post" action="/posts/{{ post.id }}" class="form card">
+    {% include "_post_fields.html" %}
+    <div class="actions">
+      <button class="btn" name="action" value="save">Salvar rascunho</button>
+      <button class="btn btn-primary" name="action" value="queue">{{ 'Tentar enviar de novo' if post.status == 'failed' else 'Aprovar e enviar' }}</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

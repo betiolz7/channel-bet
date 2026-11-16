@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="tiles">
+  <div class="tile">
+    <span class="label">Inscritos (todos os canais)</span>
+    <strong>{{ totals.subscribers|num }}</strong>
+    <span class="delta {{ 'up' if totals.subs_delta > 0 else 'down' if totals.subs_delta < 0 }}">{{ totals.subs_delta|delta }} em 7 dias</span>
+  </div>
+  <div class="tile">
+    <span class="label">Visualizações</span>
+    <strong>{{ totals.views|num }}</strong>
+    <span class="delta {{ 'up' if totals.views_delta > 0 }}">{{ totals.views_delta|delta }} em 7 dias</span>
+  </div>
+  <div class="tile">
+    <span class="label">Vídeos publicados</span>
+    <strong>{{ totals.videos|num }}</strong>
+    <span class="delta">{{ cards|length }} canais</span>
+  </div>
+  <div class="tile">
+    <span class="label">Gerações em andamento</span>
+    <strong>{{ active_jobs }}</strong>
+    <a class="delta" href="/generate">ver fila</a>
+  </div>
+</section>
+
+<div class="section-head">
+  <h2>Canais</h2>
+  <form method="post" action="/stats/refresh"><button class="btn">Atualizar estatísticas</button></form>
+</div>
+
+{% if not cards %}
+<div class="empty">
+  <p>Nenhum canal conectado ainda.</p>
+  <a class="btn btn-primary" href="/oauth/start">Conectar meu primeiro canal</a>
+  <p class="muted">Para canais de marca, escolha o canal na tela do Google. Repita para cada canal.</p>
+</div>
+{% else %}
+<div class="grid">
+  {% for c in cards %}
+  <a class="card channel-card" href="/channels/{{ c.channel.id }}">
+    <div class="channel-head">
+      {% if c.channel.thumbnail_url %}<img src="{{ c.channel.thumbnail_url }}" alt="" width="48" height="48">{% endif %}
+      <h3>{{ c.channel.title }}</h3>
+    </div>
+    {% if c.last %}
+    <dl>
+      <div><dt>Inscritos</dt><dd>{{ c.last.subscribers|num }} <small class="{{ 'up' if c.subs_delta > 0 else 'down' if c.subs_delta < 0 }}">{{ c.subs_delta|delta }}</small></dd></div>
+      <div><dt>Visualizações</dt><dd>{{ c.last.views|num }} <small class="up">{{ c.views_delta|delta }}</small></dd></div>
+      <div><dt>Vídeos</dt><dd>{{ c.last.videos|num }}</dd></div>
+    </dl>
+    <p class="muted small">Atualizado em {{ c.last.taken_at|dt }}</p>
+    {% else %}
+    <p class="muted">Sem dados ainda.</p>
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="section-head">
+  <h2>Próximas publicações e pendências</h2>
+  <a class="btn" href="/posts">Todas as postagens</a>
+</div>
+{% if upcoming %}
+<table>
+  <thead><tr><th>Vídeo</th><th>Canal</th><th>Publicação</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for p in upcoming %}
+    <tr>
+      <td><a href="/posts/{{ p.id }}">{{ p.title }}</a></td>
+      <td>{{ names.get(p.channel_id, '—') }}</td>
+      <td>{{ p.publish_at|dt if p.publish_at else 'Ao enviar' }}</td>
+      <td><span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Nada pendente.</p>
+{% endif %}
+{% endblock %}

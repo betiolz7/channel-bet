@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Postagens · Channel Bet{% endblock %}
+{% block head %}{% if busy %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
+{% block content %}
+<h1>Postagens</h1>
+
+<details class="card" {{ 'open' if channels and not posts }}>
+  <summary><strong>+ Nova postagem</strong></summary>
+  {% if not channels %}
+    <p class="muted">Conecte um canal primeiro.</p>
+  {% else %}
+  <form method="post" action="/posts" enctype="multipart/form-data" class="form">
+    <label>Arquivo de vídeo
+      <input type="file" name="file" accept="video/*" required>
+    </label>
+    {% set post = None %}
+    {% include "_post_fields.html" %}
+    <div class="actions">
+      <button class="btn" name="action" value="draft">Salvar rascunho</button>
+      <button class="btn btn-primary" name="action" value="queue">Enviar para o YouTube</button>
+    </div>
+  </form>
+  {% endif %}
+</details>
+
+{% if posts %}
+<table>
+  <thead><tr><th>Vídeo</th><th>Canal</th><th>Publicação</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+  {% for p in posts %}
+    <tr>
+      <td>
+        <a href="/posts/{{ p.id }}">{{ p.title }}</a>
+        {% if p.source == 'generated' %}<span class="badge">IA</span>{% endif %}
+        {% if p.error %}<div class="error-text small">{{ p.error }}</div>{% endif %}
+      </td>
+      <td>{{ names.get(p.channel_id, '—') }}</td>
+      <td>{{ p.publish_at|dt if p.publish_at else PRIVACY[p.privacy] ~ ' ao enviar' }}</td>
+      <td><span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span></td>
+      <td class="nowrap">
+        {% if p.youtube_video_id %}
+          <a href="https://studio.youtube.com/video/{{ p.youtube_video_id }}/edit" target="_blank" rel="noopener">Studio ↗</a>
+        {% endif %}
+        {% if p.status != 'uploading' %}
+        <form method="post" action="/posts/{{ p.id }}/delete" class="inline" onsubmit="return confirm('Excluir esta postagem e o arquivo local?')">
+          <button class="link danger">Excluir</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Nenhuma postagem ainda.</p>
+{% endif %}
+{% endblock %}

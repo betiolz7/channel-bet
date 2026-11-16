@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}{{ channel.title }} · Channel Bet{% endblock %}
+{% block content %}
+<div class="section-head">
+  <div class="channel-head">
+    {% if channel.thumbnail_url %}<img src="{{ channel.thumbnail_url }}" alt="" width="56" height="56">{% endif %}
+    <div>
+      <h1>{{ channel.title }}</h1>
+      <a class="muted small" href="https://www.youtube.com/channel/{{ channel.id }}" target="_blank" rel="noopener">Abrir no YouTube ↗</a>
+    </div>
+  </div>
+  <form method="post" action="/channels/{{ channel.id }}/remove" onsubmit="return confirm('Desconectar este canal do app?')">
+    <button class="btn btn-danger">Desconectar</button>
+  </form>
+</div>
+
+{% if api_error %}<div class="flash error">Erro ao consultar o YouTube: {{ api_error }}</div>{% endif %}
+
+<section class="tiles">
+  <div class="tile"><span class="label">Inscritos</span><strong>{{ last.subscribers|num if last else '—' }}</strong></div>
+  <div class="tile"><span class="label">Visualizações (28 dias)</span><strong>{{ summary.views|num }}</strong></div>
+  <div class="tile"><span class="label">Horas assistidas (28 dias)</span><strong>{{ summary.hours|num }}</strong></div>
+  <div class="tile"><span class="label">Inscritos líquidos (28 dias)</span><strong>{{ summary.subs|delta or '0' }}</strong></div>
+</section>
+
+<div class="card">
+  <h2>Visualizações por dia</h2>
+  {% if has_daily %}
+  <div class="chart-box"><canvas id="chart"></canvas></div>
+  <p class="muted small">Os dados do YouTube Analytics costumam chegar com 2 a 3 dias de atraso.</p>
+  {% else %}
+  <p class="muted">Sem dados de analytics para o período.</p>
+  {% endif %}
+</div>
+
+<h2>Vídeos recentes</h2>
+{% if videos %}
+<table>
+  <thead><tr><th>Título</th><th>Publicado</th><th>Visibilidade</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Comentários</th></tr></thead>
+  <tbody>
+  {% for v in videos %}
+    <tr>
+      <td><a href="https://youtu.be/{{ v.id }}" target="_blank" rel="noopener">{{ v.title }}</a></td>
+      <td>{{ v.published_at }}</td>
+      <td>{{ PRIVACY.get(v.privacy, v.privacy) }}{% if v.publish_at %} <small class="muted">(agendado)</small>{% endif %}</td>
+      <td class="num">{{ v.views|num }}</td>
+      <td class="num">{{ v.likes|num }}</td>
+      <td class="num">{{ v.comments|num }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Nenhum vídeo encontrado.</p>
+{% endif %}
+
+<h2>Postagens deste canal no app</h2>
+{% if posts %}
+<table>
+  <thead><tr><th>Vídeo</th><th>Publicação</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for p in posts %}
+    <tr>
+      <td><a href="/posts/{{ p.id }}">{{ p.title }}</a></td>
+      <td>{{ p.publish_at|dt if p.publish_at else 'Ao enviar' }}</td>
+      <td><span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Nenhuma postagem criada pelo app para este canal.</p>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if has_daily %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+  const d = {{ chart_json|safe }};
+  const css = getComputedStyle(document.documentElement);
+  new Chart(document.getElementById('chart'), {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: 'Visualizações', data: d.views, tension: .3, fill: true,
+        borderColor: css.getPropertyValue('--accent').trim(),
+        backgroundColor: css.getPropertyValue('--accent-soft').trim(),
+        pointRadius: 0
+      }]
+    },
+    options: {
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: css.getPropertyValue('--muted').trim(), maxTicksLimit: 10 }, grid: { display: false } },
+        y: { beginAtZero: true, ticks: { color: css.getPropertyValue('--muted').trim() }, grid: { color: css.getPropertyValue('--line').trim() } }
+      }
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

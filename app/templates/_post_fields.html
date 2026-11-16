@@ -1,0 +1,31 @@
+{# Campos compartilhados entre "nova postagem" e "editar postagem". Espera `post` (opcional) e `channels`. #}
+<label>Canal
+  <select name="channel_id" {{ 'required' if not post }}>
+    {% if post and not post.channel_id %}<option value="">— escolha —</option>{% endif %}
+    {% for c in channels %}
+      <option value="{{ c.id }}" {{ 'selected' if post and post.channel_id == c.id }}>{{ c.title }}</option>
+    {% endfor %}
+  </select>
+</label>
+<label>Título <small class="muted">(máx. 100)</small>
+  <input name="title" maxlength="100" required value="{{ post.title if post else '' }}">
+</label>
+<label>Descrição
+  <textarea name="description" rows="5" maxlength="5000">{{ post.description if post else '' }}</textarea>
+</label>
+<label>Tags <small class="muted">(separadas por vírgula)</small>
+  <input name="tags" value="{{ post.tags if post else '' }}">
+</label>
+<div class="row">
+  <label>Visibilidade
+    <select name="privacy">
+      {% for k, v in PRIVACY.items() %}
+        <option value="{{ k }}" {{ 'selected' if (post and post.privacy == k) or (not post and k == 'private') }}>{{ v }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>Agendar publicação <small class="muted">(opcional)</small>
+    <input type="datetime-local" name="publish_at" value="{{ post.publish_at|input_dt if post else '' }}">
+  </label>
+</div>
+<p class="muted small">Com data agendada, o vídeo sobe como privado e o próprio YouTube o torna público no horário. Seu PC não precisa estar ligado nessa hora.</p>
