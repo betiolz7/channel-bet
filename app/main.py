@@ -87,9 +87,10 @@ def fmt_compact(n: int | float | None) -> str:
     if n is None:
         return "—"
     n = int(n)
-    for limit, suffix in ((1_000_000_000, " bi"), (1_000_000, " mi"), (10_000, " mil")):
+    # (a partir de, divisor, sufixo): "mil" só a partir de 10.000, mas dividindo por 1.000
+    for limit, divisor, suffix in ((1_000_000_000, 1_000_000_000, " bi"), (1_000_000, 1_000_000, " mi"), (10_000, 1_000, " mil")):
         if abs(n) >= limit:
-            return f"{n / limit:.1f}".rstrip("0").rstrip(".").replace(".", ",") + suffix
+            return f"{n / divisor:.1f}".rstrip("0").rstrip(".").replace(".", ",") + suffix
     return fmt_num(n)
 
 
