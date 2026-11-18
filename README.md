@@ -11,6 +11,12 @@
 [![Instagram API](https://img.shields.io/badge/Instagram-Graph%20API-E4405F?logo=instagram&logoColor=white)](https://developers.facebook.com/docs/instagram-platform)
 [![Claude](https://img.shields.io/badge/IA-Claude-D97757?logo=anthropic&logoColor=white)](https://www.anthropic.com)
 
+<br>
+
+<img src="docs/img/dashboard.png" width="900" alt="Painel com estatísticas somadas de todos os canais">
+
+<sub>Painel com dados de exemplo (canais fictícios)</sub>
+
 </div>
 
 ---
@@ -31,6 +37,19 @@ Quem cuida de vários canais sabe: é uma aba do YouTube Studio para cada canal,
 | 🤖 **Sugestão com IA** | O Claude gera 3 opções de título, descrição e tags a partir do tema do vídeo |
 | 🎬 **Geração de vídeo** | Cria vídeos a partir de um tema com o [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo). O resultado vira rascunho para revisar antes de publicar |
 | ⚙️ **Worker em segundo plano** | Fila de upload, acompanhamento das gerações e coleta de estatísticas rodando sozinhos |
+
+## 📸 Telas
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/img/calendario.png" alt="Calendário mensal das publicações, colorido por canal"></td>
+    <td width="50%"><img src="docs/img/nova-postagem.png" alt="Nova postagem: um vídeo para vários canais de uma vez"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Calendário de publicações por canal</sub></td>
+    <td align="center"><sub>Um vídeo, vários canais, com sugestão de título por IA</sub></td>
+  </tr>
+</table>
 
 ## 🛠️ Stack
 
