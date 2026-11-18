@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Calendário · Channel Bet{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ title }}</h1>
+    <p class="muted">{% if undated %}{{ undated }} postage{{ 'ns' if undated != 1 else 'm' }} sem data. <a href="/posts?status=draft">Ver rascunhos</a>{% else %}Clique em um dia para agendar um vídeo.{% endif %}</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn icon-btn" href="/calendar?m={{ prev_m }}" aria-label="Mês anterior">{{ icon('chevron-left') }}</a>
+    <a class="btn" href="/calendar">Hoje</a>
+    <a class="btn icon-btn" href="/calendar?m={{ next_m }}" aria-label="Próximo mês">{{ icon('chevron-right') }}</a>
+  </div>
+</header>
+
+<div class="legend">
+  {% for c in nav_channels %}<span><span class="dot" style="--c: {{ colors[c.id] }}"></span>{{ c.title }}</span>{% endfor %}
+</div>
+
+<div class="calendar">
+  {% for wd in ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'] %}<div class="cal-wd">{{ wd }}</div>{% endfor %}
+  {% for week in weeks %}{% for day in week %}
+  <div class="cal-day {{ 'other' if day.month != first.month }} {{ 'today' if day == today }} {{ 'past' if day < today }}">
+    <div class="cal-day-head">
+      <span class="cal-num">{{ day.day }}</span>
+      {% if day >= today %}<a class="cal-add" href="/posts/new?date={{ day.isoformat() }}" aria-label="Agendar em {{ day.day }}">{{ icon('plus', 14) }}</a>{% endif %}
+    </div>
+    {% for p, when in events.get(day, []) %}
+    <a class="cal-event s-{{ p.status }}" href="/posts/{{ p.id }}" style="--c: {{ colors.get(p.channel_id, '#999') }}" title="{{ p.title }} · {{ POST_STATUS[p.status] }}">
+      <span class="cal-time">{{ when|time }}</span> <span class="ellipsis">{{ p.title }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endfor %}{% endfor %}
+</div>
+{% endblock %}

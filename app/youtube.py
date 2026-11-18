@@ -123,6 +123,32 @@ def fetch_recent_videos(creds: Credentials, uploads_playlist_id: str, limit: int
     return out
 
 
+def fetch_total_video_views(creds: Credentials, uploads_playlist_id: str, max_videos: int = 500) -> int:
+    """Soma as views de cada vídeo (custo: ~2 unidades a cada 50 vídeos).
+
+    O viewCount do canal demora horas ou dias para refletir vídeos novos,
+    enquanto o de cada vídeo atualiza quase em tempo real.
+    """
+    yt = _yt(creds)
+    total, seen, page_token = 0, 0, None
+    while seen < max_videos:
+        resp = (
+            yt.playlistItems()
+            .list(part="contentDetails", playlistId=uploads_playlist_id, maxResults=50, pageToken=page_token)
+            .execute()
+        )
+        ids = [i["contentDetails"]["videoId"] for i in resp.get("items", [])]
+        if not ids:
+            break
+        for v in yt.videos().list(part="statistics", id=",".join(ids)).execute().get("items", []):
+            total += int(v.get("statistics", {}).get("viewCount", 0))
+        seen += len(ids)
+        page_token = resp.get("nextPageToken")
+        if not page_token:
+            break
+    return total
+
+
 def fetch_daily_analytics(creds: Credentials, days: int = 28) -> list[dict]:
     """Métricas diárias do canal. O YouTube costuma ter 2-3 dias de atraso nesses dados."""
     end = date.today()

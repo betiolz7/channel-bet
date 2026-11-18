@@ -1,57 +1,75 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Postagens · Channel Bet{% endblock %}
 {% block head %}{% if busy %}<meta http-equiv="refresh" content="15">{% endif %}{% endblock %}
 {% block content %}
-<h1>Postagens</h1>
+<header class="page-head">
+  <div>
+    <h1>Postagens</h1>
+    <p class="muted">Rascunhos, fila de envio e histórico.</p>
+  </div>
+  <div class="head-actions">
+    <a class="btn btn-primary" href="/posts/new">{{ icon('plus', 15) }} Nova postagem</a>
+  </div>
+</header>
 
-<details class="card" {{ 'open' if channels and not posts }}>
-  <summary><strong>+ Nova postagem</strong></summary>
-  {% if not channels %}
-    <p class="muted">Conecte um canal primeiro.</p>
-  {% else %}
-  <form method="post" action="/posts" enctype="multipart/form-data" class="form">
-    <label>Arquivo de vídeo
-      <input type="file" name="file" accept="video/*" required>
-    </label>
-    {% set post = None %}
-    {% include "_post_fields.html" %}
-    <div class="actions">
-      <button class="btn" name="action" value="draft">Salvar rascunho</button>
-      <button class="btn btn-primary" name="action" value="queue">Enviar para o YouTube</button>
-    </div>
+<div class="toolbar">
+  <nav class="tabs">
+    <a href="/posts{{ '?channel=' ~ channel if channel }}" class="{{ 'active' if not status }}">Todas <em>{{ counts['all'] }}</em></a>
+    {% for key in ['draft', 'queued', 'uploaded', 'failed'] %}
+    <a href="/posts?status={{ key }}{{ '&channel=' ~ channel if channel }}" class="{{ 'active' if status == key }}">{{ POST_STATUS[key] }}{{ 's' if key == 'draft' }} <em>{{ counts[key] }}</em></a>
+    {% endfor %}
+  </nav>
+  <form method="get" action="/posts" class="filter">
+    {% if status %}<input type="hidden" name="status" value="{{ status }}">{% endif %}
+    <select name="channel" onchange="this.form.submit()" aria-label="Filtrar por canal">
+      <option value="">Todos os canais</option>
+      {% for c in nav_channels %}<option value="{{ c.id }}" {{ 'selected' if channel == c.id }}>{{ c.title }}</option>{% endfor %}
+    </select>
   </form>
-  {% endif %}
-</details>
+</div>
 
 {% if posts %}
-<table>
-  <thead><tr><th>Vídeo</th><th>Canal</th><th>Publicação</th><th>Status</th><th></th></tr></thead>
-  <tbody>
+<div class="post-list">
   {% for p in posts %}
-    <tr>
-      <td>
-        <a href="/posts/{{ p.id }}">{{ p.title }}</a>
-        {% if p.source == 'generated' %}<span class="badge">IA</span>{% endif %}
-        {% if p.error %}<div class="error-text small">{{ p.error }}</div>{% endif %}
-      </td>
-      <td>{{ names.get(p.channel_id, '—') }}</td>
-      <td>{{ p.publish_at|dt if p.publish_at else PRIVACY[p.privacy] ~ ' ao enviar' }}</td>
-      <td><span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span></td>
-      <td class="nowrap">
-        {% if p.youtube_video_id %}
-          <a href="https://studio.youtube.com/video/{{ p.youtube_video_id }}/edit" target="_blank" rel="noopener">Studio ↗</a>
-        {% endif %}
-        {% if p.status != 'uploading' %}
-        <form method="post" action="/posts/{{ p.id }}/delete" class="inline" onsubmit="return confirm('Excluir esta postagem e o arquivo local?')">
-          <button class="link danger">Excluir</button>
-        </form>
-        {% endif %}
-      </td>
-    </tr>
+  <article class="post-row" style="--c: {{ colors.get(p.channel_id, '#999') }}">
+    <a class="thumb" href="/posts/{{ p.id }}">
+      {% if p.youtube_video_id and platform_of.get(p.channel_id) != 'instagram' %}
+        <img src="https://i.ytimg.com/vi/{{ p.youtube_video_id }}/mqdefault.jpg" alt="" loading="lazy">
+      {% else %}
+        <video src="/media/{{ p.id }}#t=1" preload="metadata" muted></video>
+      {% endif %}
+    </a>
+    <div class="post-main">
+      <a href="/posts/{{ p.id }}" class="post-title">{{ p.title }}</a>
+      <div class="muted small post-meta">
+        <span><span class="dot"></span>{{ names.get(p.channel_id, 'Sem canal') }}{% if p.channel_id in platform_of %} {{ icon(platform_of[p.channel_id], 13) }}{% endif %}</span>
+        <span>{{ icon('clock', 13) }} {{ p.publish_at|dt if p.publish_at else ('Ao enviar' if platform_of.get(p.channel_id) == 'instagram' else PRIVACY[p.privacy] ~ ' ao enviar') }}</span>
+        {% if p.source == 'generated' %}<span>{{ icon('clapperboard', 13) }} Gerado</span>{% endif %}
+      </div>
+      {% if p.error %}<div class="error-text small">{{ p.error }}</div>{% endif %}
+    </div>
+    <span class="badge s-{{ p.status }}">{% if p.status == 'uploading' %}<span class="spinner"></span>{% endif %}{{ POST_STATUS[p.status] }}</span>
+    <div class="row-actions">
+      {% if p.external_url %}
+        <a class="icon-btn" href="{{ p.external_url }}" target="_blank" rel="noopener" title="Abrir no Instagram">{{ icon('external', 16) }}</a>
+      {% elif p.youtube_video_id and platform_of.get(p.channel_id) != 'instagram' %}
+        <a class="icon-btn" href="https://studio.youtube.com/video/{{ p.youtube_video_id }}/edit" target="_blank" rel="noopener" title="Abrir no Studio">{{ icon('external', 16) }}</a>
+      {% endif %}
+      {% if p.status != 'uploading' %}
+      <form method="post" action="/posts/{{ p.id }}/delete" onsubmit="return confirm('Excluir esta postagem? O que já foi publicado não é apagado.')">
+        <button class="icon-btn danger" title="Excluir">{{ icon('trash', 16) }}</button>
+      </form>
+      {% endif %}
+    </div>
+  </article>
   {% endfor %}
-  </tbody>
-</table>
+</div>
 {% else %}
-<p class="muted">Nenhuma postagem ainda.</p>
+<div class="empty">
+  <span class="empty-icon">{{ icon('inbox', 18) }}</span>
+  <p><strong>Nenhuma postagem {{ 'com esse filtro' if status or channel else 'ainda' }}</strong></p>
+  <a class="btn btn-sm" href="/posts/new">{{ icon('plus', 14) }} Criar postagem</a>
+</div>
 {% endif %}
 {% endblock %}

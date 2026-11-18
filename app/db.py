@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from .config import DB_URL
@@ -21,7 +21,8 @@ class Base(DeclarativeBase):
 class Channel(Base):
     __tablename__ = "channels"
 
-    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # ID do canal no YouTube
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)  # ID do canal no YouTube ou da conta no Instagram
+    platform: Mapped[str] = mapped_column(String(16), default="youtube", server_default="youtube")
     title: Mapped[str] = mapped_column(String(200))
     thumbnail_url: Mapped[str | None] = mapped_column(String(500))
     uploads_playlist_id: Mapped[str | None] = mapped_column(String(64))
@@ -58,7 +59,8 @@ class Post(Base):
     file_path: Mapped[str] = mapped_column(String(500))
     status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
     source: Mapped[str] = mapped_column(String(16), default="manual")  # manual | generated
-    youtube_video_id: Mapped[str | None] = mapped_column(String(32))
+    youtube_video_id: Mapped[str | None] = mapped_column(String(32))  # ID do vídeo/mídia na plataforma
+    external_url: Mapped[str | None] = mapped_column(String(500))  # link do post (Instagram)
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, onupdate=utcnow)
@@ -86,5 +88,19 @@ class GenerationJob(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
+# Colunas adicionadas depois da primeira versão (create_all não altera tabelas existentes).
+_NEW_COLUMNS = {
+    "channels": {"platform": "VARCHAR(16) NOT NULL DEFAULT 'youtube'"},
+    "posts": {"external_url": "VARCHAR(500)"},
+}
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    insp = inspect(engine)
+    with engine.begin() as conn:
+        for table, columns in _NEW_COLUMNS.items():
+            existing = {c["name"] for c in insp.get_columns(table)}
+            for name, ddl in columns.items():
+                if name not in existing:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}"))

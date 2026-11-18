@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ channel.title }} · Channel Bet{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div class="channel-head">
+    {% if channel.thumbnail_url %}<img class="avatar" src="{{ channel.thumbnail_url }}" alt="" width="56" height="56" style="--c: {{ colors[channel.id] }}">{% endif %}
+    <div>
+      <h1>{{ channel.title }}</h1>
+      <div class="channel-links">
+        <span>{{ icon('instagram', 14) }} Instagram</span>
+        <a href="https://www.instagram.com/{{ channel.title.lstrip('@') }}/" target="_blank" rel="noopener">Abrir perfil {{ icon('external-link', 12) }}</a>
+      </div>
+    </div>
+  </div>
+  <div class="head-actions">
+    <a class="btn btn-primary" href="/posts/new?channel={{ channel.id }}">{{ icon('plus', 15) }} Postar nesta conta</a>
+    <form method="post" action="/channels/{{ channel.id }}/remove" onsubmit="return confirm('Desconectar esta conta do app?')">
+      <button class="btn btn-ghost-danger">Desconectar</button>
+    </form>
+  </div>
+</header>
+
+{% if api_error %}<div class="flash error">{{ icon('circle-alert', 16) }}<span>Erro ao consultar o Instagram: {{ api_error }}</span></div>{% endif %}
+
+<section class="tiles">
+  <div class="tile"><span class="label">Seguidores</span><strong>{{ last.subscribers|num if last else '—' }}</strong></div>
+  <div class="tile"><span class="label">Posts</span><strong>{{ last.videos|num if last else '—' }}</strong></div>
+  <div class="tile"><span class="label">Views</span><strong>{{ totals.views|compact }}</strong><span class="delta"><small>últimos {{ media|length }} posts</small></span></div>
+  <div class="tile"><span class="label">Curtidas</span><strong>{{ totals.likes|compact }}</strong><span class="delta"><small>últimos {{ media|length }} posts</small></span></div>
+</section>
+
+<div class="section-head"><h2>Posts recentes</h2></div>
+{% if media %}
+<div class="media-grid">
+  {% for m in media %}
+  <a class="media-card" href="{{ m.permalink }}" target="_blank" rel="noopener">
+    <div class="media-thumb">
+      {% if m.thumb %}<img src="{{ m.thumb }}" alt="" loading="lazy">{% endif %}
+      {% if m.type %}<span class="badge">{{ 'Reel' if m.type == 'REELS' else m.type|capitalize }}</span>{% endif %}
+    </div>
+    <div class="media-body">
+      <p class="small ellipsis">{{ m.caption or 'Sem legenda' }}</p>
+      <div class="muted small media-stats">
+        <span>{{ icon('eye', 13) }} {{ m.views|compact }}</span>
+        <span>{{ icon('heart', 13) }} {{ m.likes|compact }}</span>
+        <span>{{ icon('message', 13) }} {{ m.comments|compact }}</span>
+        <span>{{ m.timestamp[8:10] }}/{{ m.timestamp[5:7] }}</span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="muted">Nenhum post encontrado.</p>
+{% endif %}
+
+{% if posts %}
+<div class="section-head"><h2>Postagens desta conta no app</h2></div>
+<ul class="agenda">
+  {% for p in posts %}
+  <li>
+    <span class="agenda-date">{{ p.publish_at|dt if p.publish_at else 'Sem data' }}</span>
+    <a href="/posts/{{ p.id }}" class="ellipsis">{{ p.title }}</a>
+    <span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

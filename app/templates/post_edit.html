@@ -1,30 +1,64 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}{{ post.title }} · Channel Bet{% endblock %}
 {% block content %}
-<p><a href="/posts">← Postagens</a></p>
-<h1>{{ post.title }} <span class="badge s-{{ post.status }}">{{ POST_STATUS[post.status] }}</span></h1>
-{% if post.error %}<div class="flash error">{{ post.error }}</div>{% endif %}
+<a href="/posts" class="back">{{ icon('arrow-left', 14) }} Postagens</a>
+<header class="page-head">
+  <div>
+    <h1>{{ post.title }}</h1>
+    <p>
+      <span class="badge s-{{ post.status }}">{{ POST_STATUS[post.status] }}</span>
+      {% if post.source == 'generated' %}<span class="badge">{{ icon('clapperboard', 12) }} Gerado</span>{% endif %}
+      <span class="muted small">criado em {{ post.created_at|dt }}</span>
+    </p>
+  </div>
+  {% if post.external_url %}
+  <div class="head-actions">
+    <a class="btn" href="{{ post.external_url }}" target="_blank" rel="noopener">Ver no Instagram {{ icon('external', 14) }}</a>
+  </div>
+  {% elif post.youtube_video_id and not is_ig %}
+  <div class="head-actions">
+    <a class="btn" href="https://youtu.be/{{ post.youtube_video_id }}" target="_blank" rel="noopener">Ver no YouTube {{ icon('external', 14) }}</a>
+    <a class="btn" href="https://studio.youtube.com/video/{{ post.youtube_video_id }}/edit" target="_blank" rel="noopener">Studio {{ icon('external', 14) }}</a>
+  </div>
+  {% endif %}
+</header>
+{% if post.error %}<div class="flash error">{{ icon('circle-alert', 16) }}<span>{{ post.error }}</span></div>{% endif %}
 
 <div class="split">
-  <div>
+  <div class="stack">
     <video src="/media/{{ post.id }}" controls preload="metadata" class="preview"></video>
-    {% if post.youtube_video_id %}
-      <p><a href="https://youtu.be/{{ post.youtube_video_id }}" target="_blank" rel="noopener">Ver no YouTube ↗</a></p>
+    {% if post.status == 'draft' and post.source == 'generated' %}
+    <p class="hint">Assista ao vídeo antes de aprovar. O YouTube penaliza conteúdo repetitivo ou de baixa qualidade.</p>
     {% endif %}
   </div>
 
   {% if post.status in ('uploading', 'uploaded') %}
   <div class="card">
-    <p>Este vídeo já foi enviado. Edite título e descrição pelo YouTube Studio.</p>
+    <p>Este vídeo já foi enviado. Para editar, use o {{ 'Instagram' if is_ig else 'YouTube Studio' }}.</p>
+    <dl class="kv">
+      <dt>Canal</dt><dd>{{ (nav_channels|selectattr('id', 'equalto', post.channel_id)|first).title if post.channel_id else '—' }}</dd>
+      <dt>Publicação</dt><dd>{{ post.publish_at|dt if post.publish_at else PRIVACY[post.privacy] }}</dd>
+    </dl>
   </div>
   {% else %}
-  <form method="post" action="/posts/{{ post.id }}" class="form card">
+  <form method="post" action="/posts/{{ post.id }}" class="card form" data-post-form>
+    <div class="field">
+      <label for="f-channel">Canal</label>
+      <select id="f-channel" name="channel_id" data-channel-select>
+        {% if not post.channel_id %}<option value="">— escolha —</option>{% endif %}
+        {% for c in channels %}
+          <option value="{{ c.id }}" data-platform="{{ c.platform }}" {{ 'selected' if post.channel_id == c.id }}>{{ c.title }} · {{ PLATFORMS[c.platform] }}</option>
+        {% endfor %}
+      </select>
+    </div>
     {% include "_post_fields.html" %}
     <div class="actions">
       <button class="btn" name="action" value="save">Salvar rascunho</button>
-      <button class="btn btn-primary" name="action" value="queue">{{ 'Tentar enviar de novo' if post.status == 'failed' else 'Aprovar e enviar' }}</button>
+      <button class="btn btn-primary" name="action" value="queue">{{ icon('send', 15) }} {{ 'Tentar enviar de novo' if post.status == 'failed' else 'Aprovar e enviar' }}</button>
     </div>
   </form>
   {% endif %}
 </div>
 {% endblock %}
+{% block scripts %}<script src="/static/app.js"></script>{% endblock %}

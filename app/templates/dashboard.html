@@ -1,81 +1,121 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
+<header class="page-head">
+  <div>
+    <h1>Painel</h1>
+    <p class="muted">{{ cards|length }} cana{{ 'is' if cards|length != 1 else 'l' }} conectado{{ 's' if cards|length != 1 }}</p>
+  </div>
+  <div class="head-actions">
+    <form method="post" action="/stats/refresh"><button class="btn">{{ icon('refresh-cw', 15) }} Atualizar</button></form>
+    <a class="btn btn-primary" href="/posts/new">{{ icon('plus', 15) }} Nova postagem</a>
+  </div>
+</header>
+
 <section class="tiles">
   <div class="tile">
-    <span class="label">Inscritos (todos os canais)</span>
-    <strong>{{ totals.subscribers|num }}</strong>
-    <span class="delta {{ 'up' if totals.subs_delta > 0 else 'down' if totals.subs_delta < 0 }}">{{ totals.subs_delta|delta }} em 7 dias</span>
+    <span class="label">Inscritos e seguidores</span>
+    <strong title="{{ totals.subscribers|num }}">{{ totals.subscribers|compact }}</strong>
+    <span class="delta {{ 'up' if totals.subs_delta > 0 else 'down' if totals.subs_delta < 0 }}">{% if totals.subs_delta %}{{ icon('arrow-up-right' if totals.subs_delta > 0 else 'arrow-down-right', 13) }}{{ totals.subs_delta|delta }}{% else %}Sem variação{% endif %} <small>em 7 dias</small></span>
   </div>
   <div class="tile">
     <span class="label">Visualizações</span>
-    <strong>{{ totals.views|num }}</strong>
-    <span class="delta {{ 'up' if totals.views_delta > 0 }}">{{ totals.views_delta|delta }} em 7 dias</span>
+    <strong title="{{ totals.views|num }}">{{ totals.views|compact }}</strong>
+    <span class="delta {{ 'up' if totals.views_delta > 0 }}">{% if totals.views_delta %}{{ icon('arrow-up-right', 13) }}{{ totals.views_delta|delta }}{% else %}Sem variação{% endif %} <small>em 7 dias</small></span>
   </div>
   <div class="tile">
-    <span class="label">Vídeos publicados</span>
+    <span class="label">Vídeos e posts</span>
     <strong>{{ totals.videos|num }}</strong>
-    <span class="delta">{{ cards|length }} canais</span>
+    <span class="delta"><small>em todos os canais</small></span>
   </div>
-  <div class="tile">
-    <span class="label">Gerações em andamento</span>
+  <a class="tile tile-link" href="/generate">
+    <span class="label">Vídeos em geração</span>
     <strong>{{ active_jobs }}</strong>
-    <a class="delta" href="/generate">ver fila</a>
-  </div>
+    <span class="delta"><small>Ver fila</small>{{ icon('chevron-right', 13) }}</span>
+  </a>
 </section>
 
-<div class="section-head">
-  <h2>Canais</h2>
-  <form method="post" action="/stats/refresh"><button class="btn">Atualizar estatísticas</button></form>
-</div>
-
+<div class="section-head"><h2>Canais</h2></div>
 {% if not cards %}
 <div class="empty">
-  <p>Nenhum canal conectado ainda.</p>
-  <a class="btn btn-primary" href="/oauth/start">Conectar meu primeiro canal</a>
+  <span class="empty-icon">{{ icon('unplug', 18) }}</span>
+  <p><strong>Nenhum canal conectado</strong></p>
   <p class="muted">Para canais de marca, escolha o canal na tela do Google. Repita para cada canal.</p>
+  <div class="head-actions">
+    <a class="btn btn-primary" href="/oauth/start">{{ icon('youtube', 15) }} Conectar YouTube</a>
+    <a class="btn" href="/oauth/meta/start">{{ icon('instagram', 15) }} Conectar Instagram</a>
+  </div>
 </div>
 {% else %}
 <div class="grid">
   {% for c in cards %}
-  <a class="card channel-card" href="/channels/{{ c.channel.id }}">
+  <a class="card channel-card" href="/channels/{{ c.channel.id }}" style="--c: {{ colors[c.channel.id] }}">
     <div class="channel-head">
-      {% if c.channel.thumbnail_url %}<img src="{{ c.channel.thumbnail_url }}" alt="" width="48" height="48">{% endif %}
-      <h3>{{ c.channel.title }}</h3>
+      {% if c.channel.thumbnail_url %}<img class="avatar" src="{{ c.channel.thumbnail_url }}" alt="" width="44" height="44">{% endif %}
+      <div class="ellipsis">
+        <h3 class="ellipsis">{{ c.channel.title }} <span class="platform-mark" title="{{ PLATFORMS[c.channel.platform] }}">{{ icon(c.channel.platform, 14) }}</span></h3>
+        <span class="muted small">{{ 'Atualizado ' ~ c.last.taken_at|dt if c.last else 'Sem dados ainda' }}</span>
+      </div>
     </div>
     {% if c.last %}
-    <dl>
-      <div><dt>Inscritos</dt><dd>{{ c.last.subscribers|num }} <small class="{{ 'up' if c.subs_delta > 0 else 'down' if c.subs_delta < 0 }}">{{ c.subs_delta|delta }}</small></dd></div>
-      <div><dt>Visualizações</dt><dd>{{ c.last.views|num }} <small class="up">{{ c.views_delta|delta }}</small></dd></div>
-      <div><dt>Vídeos</dt><dd>{{ c.last.videos|num }}</dd></div>
+    <dl class="stats">
+      {% set ig = c.channel.platform == 'instagram' %}
+      <div><dt>{{ 'Seguidores' if ig else 'Inscritos' }}</dt><dd>{{ c.last.subscribers|compact }} <small class="{{ 'up' if c.subs_delta > 0 else 'down' if c.subs_delta < 0 }}">{{ c.subs_delta|delta }}</small></dd></div>
+      <div><dt title="{{ 'Soma dos 50 posts mais recentes' if ig }}">Views{{ '*' if ig }}</dt><dd>{{ c.last.views|compact }} <small class="up">{{ c.views_delta|delta }}</small></dd></div>
+      <div><dt>{{ 'Posts' if ig else 'Vídeos' }}</dt><dd>{{ c.last.videos|num }}</dd></div>
     </dl>
-    <p class="muted small">Atualizado em {{ c.last.taken_at|dt }}</p>
-    {% else %}
-    <p class="muted">Sem dados ainda.</p>
+    {% if c.spark %}
+    <svg class="spark" viewBox="0 0 120 36" preserveAspectRatio="none" aria-label="Views nos últimos 30 dias">
+      <polyline points="{{ c.spark }}"/>
+    </svg>
+    {% endif %}
     {% endif %}
   </a>
   {% endfor %}
 </div>
 {% endif %}
 
-<div class="section-head">
-  <h2>Próximas publicações e pendências</h2>
-  <a class="btn" href="/posts">Todas as postagens</a>
+<div class="two-col">
+  <section>
+    <div class="section-head">
+      <h2>Próximos 7 dias</h2>
+      <a href="/calendar" class="section-link">Calendário {{ icon('chevron-right', 14) }}</a>
+    </div>
+    {% if week %}
+    <ul class="agenda">
+      {% for p in week %}
+      <li>
+        <span class="agenda-date">{{ p.publish_at|dt }}</span>
+        <span class="dot" style="--c: {{ colors.get(p.channel_id, '#999') }}"></span>
+        <a href="/posts/{{ p.id }}" class="ellipsis">{{ p.title }}</a>
+        <span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty small-empty"><span class="empty-icon">{{ icon('calendar-days', 18) }}</span><p>Nada agendado para os próximos 7 dias.</p><a class="btn btn-sm" href="/posts/new">{{ icon('plus', 14) }} Agendar</a></div>
+    {% endif %}
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>Precisa de atenção</h2>
+      <a href="/posts" class="section-link">Postagens {{ icon('chevron-right', 14) }}</a>
+    </div>
+    {% if attention %}
+    <ul class="agenda">
+      {% for p in attention %}
+      <li>
+        <span class="dot" style="--c: {{ colors.get(p.channel_id, '#999') }}"></span>
+        <a href="/posts/{{ p.id }}" class="ellipsis">{{ p.title }}</a>
+        <span class="muted small ellipsis">{{ names.get(p.channel_id, 'sem canal') }}</span>
+        <span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty small-empty"><span class="empty-icon">{{ icon('check', 18) }}</span><p>Nenhum rascunho ou falha pendente.</p></div>
+    {% endif %}
+  </section>
 </div>
-{% if upcoming %}
-<table>
-  <thead><tr><th>Vídeo</th><th>Canal</th><th>Publicação</th><th>Status</th></tr></thead>
-  <tbody>
-  {% for p in upcoming %}
-    <tr>
-      <td><a href="/posts/{{ p.id }}">{{ p.title }}</a></td>
-      <td>{{ names.get(p.channel_id, '—') }}</td>
-      <td>{{ p.publish_at|dt if p.publish_at else 'Ao enviar' }}</td>
-      <td><span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span></td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="muted">Nada pendente.</p>
-{% endif %}
 {% endblock %}

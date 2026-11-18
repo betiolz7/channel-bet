@@ -1,65 +1,80 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Gerar vídeo · Channel Bet{% endblock %}
 {% block head %}{% if active %}<meta http-equiv="refresh" content="10">{% endif %}{% endblock %}
 {% block content %}
-<h1>Gerar vídeo com IA</h1>
-<p class="muted">Usa o MoneyPrinterTurbo para criar roteiro, imagens, narração e legendas. O vídeo pronto entra em <a href="/posts">Postagens</a> como rascunho para você revisar antes de publicar.</p>
+<header class="page-head">
+  <div>
+    <h1>Gerar vídeo</h1>
+    <p class="muted">O MoneyPrinterTurbo cria roteiro, imagens, narração e legendas. O resultado vira um rascunho para revisar.</p>
+  </div>
+</header>
 
-<form method="post" action="/generate" class="form card">
-  <label>Tema do vídeo
-    <input name="subject" required maxlength="300" placeholder="Ex.: 5 curiosidades sobre o oceano profundo">
-  </label>
-  <label>Roteiro <small class="muted">(opcional, se vazio a IA escreve)</small>
-    <textarea name="script" rows="4"></textarea>
-  </label>
-  <div class="row">
-    <label>Canal de destino
-      <select name="channel_id">
+<div class="split split-wide">
+  <form method="post" action="/generate" class="card form">
+    <div class="field">
+      <label for="g-subject">Tema do vídeo</label>
+      <input id="g-subject" name="subject" required maxlength="300" placeholder="Ex.: 5 curiosidades sobre o oceano profundo">
+    </div>
+    <div class="field">
+      <label for="g-script">Roteiro <span class="muted small">(opcional; se vazio, a IA escreve)</span></label>
+      <textarea id="g-script" name="script" rows="5"></textarea>
+    </div>
+    <div class="field">
+      <label for="g-channel">Canal de destino</label>
+      <select id="g-channel" name="channel_id">
         <option value="">Decidir depois</option>
         {% for c in channels %}<option value="{{ c.id }}">{{ c.title }}</option>{% endfor %}
       </select>
-    </label>
-    <label>Formato
-      <select name="aspect">
-        <option value="9:16">Vertical 9:16 (Shorts)</option>
-        <option value="16:9">Horizontal 16:9</option>
-        <option value="1:1">Quadrado 1:1</option>
-      </select>
-    </label>
-    <label>Voz
-      <select name="voice">
+    </div>
+    <div class="field">
+      <span class="label-text">Formato</span>
+      <div class="format-picks">
+        <label class="format"><input type="radio" name="aspect" value="9:16" checked><span class="shape s916"></span>Shorts 9:16</label>
+        <label class="format"><input type="radio" name="aspect" value="16:9"><span class="shape s169"></span>Horizontal 16:9</label>
+        <label class="format"><input type="radio" name="aspect" value="1:1"><span class="shape s11"></span>Quadrado 1:1</label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="g-voice">Voz da narração</label>
+      <select id="g-voice" name="voice">
         {% for v, label in voices %}<option value="{{ v }}">{{ label }}</option>{% endfor %}
       </select>
-    </label>
-  </div>
-  <div class="actions"><button class="btn btn-primary">Gerar</button></div>
-</form>
+    </div>
+    <div class="actions"><button class="btn btn-primary">{{ icon('play', 15) }} Gerar vídeo</button></div>
+  </form>
 
-<h2>Fila de geração</h2>
-{% if jobs %}
-<table>
-  <thead><tr><th>Tema</th><th>Canal</th><th>Criado</th><th>Status</th><th></th></tr></thead>
-  <tbody>
-  {% for j in jobs %}
-    <tr>
-      <td>{{ j.subject }}{% if j.error %}<div class="error-text small">{{ j.error }}</div>{% endif %}</td>
-      <td>{{ names.get(j.channel_id, '—') }}</td>
-      <td>{{ j.created_at|dt }}</td>
-      <td>
-        <span class="badge g-{{ j.status }}">{{ JOB_STATUS[j.status] }}</span>
-        {% if j.status == 'processing' %}<progress max="100" value="{{ j.progress }}"></progress>{% endif %}
-      </td>
-      <td class="nowrap">
-        {% if j.post_id %}<a href="/posts/{{ j.post_id }}">Revisar →</a>{% endif %}
-        {% if j.status == 'failed' %}
-        <form method="post" action="/generate/{{ j.id }}/retry" class="inline"><button class="link">Tentar de novo</button></form>
+  <section>
+    <div class="section-head"><h2>Fila de geração</h2></div>
+    {% if jobs %}
+    <div class="job-list">
+      {% for j in jobs %}
+      <article class="job">
+        <div class="job-head">
+          <strong class="ellipsis">{{ j.subject }}</strong>
+          <span class="badge g-{{ j.status }}">{% if j.status in ('pending', 'processing') %}<span class="spinner"></span>{% endif %}{{ JOB_STATUS[j.status] }}</span>
+        </div>
+        <div class="muted small">
+          {{ j.aspect }} · {{ names.get(j.channel_id, 'canal a definir') }} · {{ j.created_at|dt }}
+        </div>
+        {% if j.status == 'processing' %}
+        <div class="progress"><span style="width: {{ j.progress }}%"></span></div>
         {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="muted">Nenhuma geração ainda.</p>
-{% endif %}
+        {% if j.error %}<div class="error-text small">{{ j.error }}</div>{% endif %}
+        {% if j.post_id or j.status == 'failed' %}
+        <div class="job-actions">
+          {% if j.post_id %}<a class="btn btn-sm" href="/posts/{{ j.post_id }}">Revisar e publicar {{ icon('chevron-right', 14) }}</a>{% endif %}
+          {% if j.status == 'failed' %}
+          <form method="post" action="/generate/{{ j.id }}/retry"><button class="btn btn-sm">{{ icon('refresh-cw', 14) }} Tentar de novo</button></form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty small-empty"><span class="empty-icon">{{ icon('clapperboard', 18) }}</span><p>Nenhuma geração ainda.</p></div>
+    {% endif %}
+  </section>
+</div>
 {% endblock %}

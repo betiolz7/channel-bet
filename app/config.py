@@ -23,6 +23,13 @@ CLIENT_SECRETS_FILE = _path("GOOGLE_CLIENT_SECRETS", BASE_DIR / "client_secret.j
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8000").rstrip("/")
 OAUTH_REDIRECT_URI = f"{BASE_URL}/oauth/callback"
 
+# Instagram (app da Meta com Login do Facebook)
+META_APP_ID = os.getenv("META_APP_ID", "").strip()
+META_APP_SECRET = os.getenv("META_APP_SECRET", "").strip()
+META_CONFIG_ID = os.getenv("META_CONFIG_ID", "").strip()  # opcional: configuração do Login para Empresas
+META_API_VERSION = os.getenv("META_API_VERSION", "v24.0").strip()
+META_REDIRECT_URI = f"{BASE_URL}/oauth/meta/callback"
+
 MPT_URL = os.getenv("MPT_URL", "http://127.0.0.1:8080").rstrip("/")
 
 WORKER_INTERVAL_SECONDS = int(os.getenv("WORKER_INTERVAL_SECONDS", "30"))

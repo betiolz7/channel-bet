@@ -1,75 +1,109 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}{{ channel.title }} · Channel Bet{% endblock %}
 {% block content %}
-<div class="section-head">
+<header class="page-head">
   <div class="channel-head">
-    {% if channel.thumbnail_url %}<img src="{{ channel.thumbnail_url }}" alt="" width="56" height="56">{% endif %}
+    {% if channel.thumbnail_url %}<img class="avatar" src="{{ channel.thumbnail_url }}" alt="" width="56" height="56" style="--c: {{ colors[channel.id] }}">{% endif %}
     <div>
       <h1>{{ channel.title }}</h1>
-      <a class="muted small" href="https://www.youtube.com/channel/{{ channel.id }}" target="_blank" rel="noopener">Abrir no YouTube ↗</a>
+      <div class="channel-links">
+        <span>{{ icon('youtube', 14) }} YouTube</span>
+        <a href="https://www.youtube.com/channel/{{ channel.id }}" target="_blank" rel="noopener">Abrir canal {{ icon('external-link', 12) }}</a>
+        <a href="https://studio.youtube.com/channel/{{ channel.id }}" target="_blank" rel="noopener">Studio {{ icon('external-link', 12) }}</a>
+      </div>
     </div>
   </div>
-  <form method="post" action="/channels/{{ channel.id }}/remove" onsubmit="return confirm('Desconectar este canal do app?')">
-    <button class="btn btn-danger">Desconectar</button>
-  </form>
-</div>
+  <div class="head-actions">
+    <a class="btn btn-primary" href="/posts/new?channel={{ channel.id }}">{{ icon('plus', 15) }} Postar neste canal</a>
+    <form method="post" action="/channels/{{ channel.id }}/remove" onsubmit="return confirm('Desconectar este canal do app?')">
+      <button class="btn btn-ghost-danger">Desconectar</button>
+    </form>
+  </div>
+</header>
 
-{% if api_error %}<div class="flash error">Erro ao consultar o YouTube: {{ api_error }}</div>{% endif %}
+{% if api_error %}<div class="flash error">{{ icon('circle-alert', 16) }}<span>Erro ao consultar o YouTube: {{ api_error }}</span></div>{% endif %}
+{% if analytics_lagging %}
+<div class="flash warn">{{ icon('info', 16) }}<span>Os vídeos já têm views, mas o YouTube Analytics ainda não processou esses dias
+  (dados disponíveis até {{ last_day[8:10] ~ '/' ~ last_day[5:7] if last_day else '—' }}). O gráfico e os totais de 28 dias
+  costumam atualizar em 2 a 3 dias. As views por vídeo abaixo já estão em tempo real.</span></div>
+{% endif %}
 
 <section class="tiles">
   <div class="tile"><span class="label">Inscritos</span><strong>{{ last.subscribers|num if last else '—' }}</strong></div>
-  <div class="tile"><span class="label">Visualizações (28 dias)</span><strong>{{ summary.views|num }}</strong></div>
-  <div class="tile"><span class="label">Horas assistidas (28 dias)</span><strong>{{ summary.hours|num }}</strong></div>
-  <div class="tile"><span class="label">Inscritos líquidos (28 dias)</span><strong>{{ summary.subs|delta or '0' }}</strong></div>
+  <div class="tile"><span class="label">Views totais</span><strong>{{ last.views|compact if last else '—' }}</strong></div>
+  {% if analytics_lagging %}
+  <div class="tile"><span class="label">Views em 28 dias</span><strong>—</strong><span class="delta"><small>aguardando o YouTube</small></span></div>
+  <div class="tile"><span class="label">Horas assistidas em 28 dias</span><strong>—</strong><span class="delta"><small>aguardando o YouTube</small></span></div>
+  {% else %}
+  <div class="tile"><span class="label">Views em 28 dias</span><strong>{{ summary.views|compact }}</strong></div>
+  <div class="tile"><span class="label">Horas assistidas em 28 dias</span><strong>{{ summary.hours|num }}</strong></div>
+  {% endif %}
 </section>
 
+<div class="section-head"><h2>Desempenho diário</h2></div>
 <div class="card">
-  <h2>Visualizações por dia</h2>
+  <div class="section-head">
+    <span class="muted small">Fonte: YouTube Analytics, com 2 a 3 dias de atraso</span>
+    {% if has_daily %}
+    <div class="seg" role="tablist">
+      <button class="active" data-series="views">Views</button>
+      <button data-series="minutes">Minutos</button>
+      <button data-series="subs">Inscritos</button>
+    </div>
+    {% endif %}
+  </div>
   {% if has_daily %}
   <div class="chart-box"><canvas id="chart"></canvas></div>
-  <p class="muted small">Os dados do YouTube Analytics costumam chegar com 2 a 3 dias de atraso.</p>
   {% else %}
-  <p class="muted">Sem dados de analytics para o período.</p>
+  <p class="muted small">Ainda sem dados de analytics para os últimos 28 dias.</p>
   {% endif %}
 </div>
 
-<h2>Vídeos recentes</h2>
+<div class="section-head"><h2>Vídeos recentes</h2></div>
 {% if videos %}
+<div class="table-wrap">
 <table>
-  <thead><tr><th>Título</th><th>Publicado</th><th>Visibilidade</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Comentários</th></tr></thead>
+  <thead><tr><th>Vídeo</th><th>Publicado</th><th class="num">Views</th><th class="num">Likes</th><th class="num">Coment.</th></tr></thead>
   <tbody>
   {% for v in videos %}
     <tr>
-      <td><a href="https://youtu.be/{{ v.id }}" target="_blank" rel="noopener">{{ v.title }}</a></td>
-      <td>{{ v.published_at }}</td>
-      <td>{{ PRIVACY.get(v.privacy, v.privacy) }}{% if v.publish_at %} <small class="muted">(agendado)</small>{% endif %}</td>
-      <td class="num">{{ v.views|num }}</td>
+      <td>
+        <div class="video-cell">
+          <img src="https://i.ytimg.com/vi/{{ v.id }}/mqdefault.jpg" alt="" width="96" height="54" loading="lazy">
+          <div>
+            <a href="https://youtu.be/{{ v.id }}" target="_blank" rel="noopener">{{ v.title }}</a>
+            <div class="muted small">{{ PRIVACY.get(v.privacy, v.privacy) }}{% if v.publish_at %} · agendado{% endif %}</div>
+          </div>
+        </div>
+      </td>
+      <td class="nowrap">{{ v.published_at[8:10] }}/{{ v.published_at[5:7] }}/{{ v.published_at[:4] }}</td>
+      <td class="num">
+        {{ v.views|num }}
+        <div class="bar"><span style="width: {{ (v.views / top_views * 100)|round if top_views else 0 }}%"></span></div>
+      </td>
       <td class="num">{{ v.likes|num }}</td>
       <td class="num">{{ v.comments|num }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
+</div>
 {% else %}
 <p class="muted">Nenhum vídeo encontrado.</p>
 {% endif %}
 
-<h2>Postagens deste canal no app</h2>
 {% if posts %}
-<table>
-  <thead><tr><th>Vídeo</th><th>Publicação</th><th>Status</th></tr></thead>
-  <tbody>
+<div class="section-head"><h2>Postagens deste canal no app</h2></div>
+<ul class="agenda">
   {% for p in posts %}
-    <tr>
-      <td><a href="/posts/{{ p.id }}">{{ p.title }}</a></td>
-      <td>{{ p.publish_at|dt if p.publish_at else 'Ao enviar' }}</td>
-      <td><span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span></td>
-    </tr>
+  <li>
+    <span class="agenda-date">{{ p.publish_at|dt if p.publish_at else 'Sem data' }}</span>
+    <a href="/posts/{{ p.id }}" class="ellipsis">{{ p.title }}</a>
+    <span class="badge s-{{ p.status }}">{{ POST_STATUS[p.status] }}</span>
+  </li>
   {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="muted">Nenhuma postagem criada pelo app para este canal.</p>
+</ul>
 {% endif %}
 {% endblock %}
 
@@ -79,27 +113,31 @@
 <script>
   const d = {{ chart_json|safe }};
   const css = getComputedStyle(document.documentElement);
-  new Chart(document.getElementById('chart'), {
+  const v = (name) => css.getPropertyValue(name).trim();
+  const labels = { views: 'Views', minutes: 'Minutos assistidos', subs: 'Inscritos (saldo)' };
+  const chart = new Chart(document.getElementById('chart'), {
     type: 'line',
-    data: {
-      labels: d.labels,
-      datasets: [{
-        label: 'Visualizações', data: d.views, tension: .3, fill: true,
-        borderColor: css.getPropertyValue('--accent').trim(),
-        backgroundColor: css.getPropertyValue('--accent-soft').trim(),
-        pointRadius: 0
-      }]
-    },
+    data: { labels: d.labels, datasets: [{
+      label: labels.views, data: d.views, tension: .35, fill: true, pointRadius: 0, pointHoverRadius: 4,
+      borderWidth: 1.5, borderColor: '{{ colors[channel.id] }}', backgroundColor: '{{ colors[channel.id] }}14'
+    }]},
     options: {
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: { legend: { display: false } },
       scales: {
-        x: { ticks: { color: css.getPropertyValue('--muted').trim(), maxTicksLimit: 10 }, grid: { display: false } },
-        y: { beginAtZero: true, ticks: { color: css.getPropertyValue('--muted').trim() }, grid: { color: css.getPropertyValue('--line').trim() } }
+        x: { ticks: { color: v('--muted'), maxTicksLimit: 8, font: { family: 'Geist Mono', size: 11 } }, grid: { display: false }, border: { color: v('--line') } },
+        y: { beginAtZero: true, ticks: { color: v('--muted'), precision: 0, font: { family: 'Geist Mono', size: 11 } }, grid: { color: v('--line') }, border: { display: false } }
       }
     }
   });
+  document.querySelectorAll('.seg button').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('active', b === btn));
+    const key = btn.dataset.series;
+    chart.data.datasets[0].data = d[key];
+    chart.data.datasets[0].label = labels[key];
+    chart.update();
+  }));
 </script>
 {% endif %}
 {% endblock %}

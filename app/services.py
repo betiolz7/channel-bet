@@ -1,5 +1,6 @@
 """Regras de negócio que unem banco, YouTube e gerador."""
 
+import json
 import logging
 import uuid
 from datetime import timedelta
@@ -8,7 +9,7 @@ from pathlib import Path
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from . import generator, youtube
+from . import generator, instagram, youtube
 from .config import STATS_REFRESH_HOURS, VIDEOS_DIR
 from .db import Channel, ChannelSnapshot, GenerationJob, Post, utcnow
 
@@ -26,7 +27,7 @@ def get_creds(db: Session, channel: Channel):
 
 
 def connect_channel(db: Session, creds) -> Channel:
-    info = youtube.parse_channel(youtube.fetch_my_channel(creds))
+    info = _channel_info(creds)
     channel = db.get(Channel, info["id"])
     if channel is None:
         channel = Channel(id=info["id"], title=info["title"], credentials_json=creds.to_json())
@@ -38,6 +39,45 @@ def connect_channel(db: Session, creds) -> Channel:
     db.add(_snapshot(channel.id, info))
     db.commit()
     return channel
+
+
+def ig_token(channel: Channel) -> str:
+    return json.loads(channel.credentials_json)["token"]
+
+
+def connect_instagram(db: Session, accounts: list[dict]) -> list[Channel]:
+    """Salva (ou atualiza) as contas do Instagram devolvidas pelo login."""
+    channels = []
+    for acc in accounts:
+        channel = db.get(Channel, acc["id"])
+        creds = json.dumps({"token": acc["token"], "page_id": acc["page_id"]})
+        if channel is None:
+            channel = Channel(id=acc["id"], platform="instagram", title="", credentials_json=creds)
+            db.add(channel)
+        channel.platform = "instagram"
+        channel.title = "@" + acc["username"]
+        channel.thumbnail_url = acc["picture"]
+        channel.credentials_json = creds
+        db.flush()
+        try:
+            info = _instagram_info(channel)
+        except Exception:
+            log.exception("Falha ao ler estatísticas de %s", channel.title)
+            info = {"subscribers": acc["followers"], "views": 0, "videos": acc["media_count"]}
+        db.add(_snapshot(channel.id, info))
+        channels.append(channel)
+    db.commit()
+    return channels
+
+
+def _instagram_info(channel: Channel) -> dict:
+    token = ig_token(channel)
+    acc = instagram.account_info(token, channel.id)
+    channel.title = "@" + acc["username"]
+    channel.thumbnail_url = acc["picture"]
+    # Não existe total de views da conta; somamos as views dos posts recentes.
+    media = instagram.recent_media(token, channel.id, limit=50)
+    return {"subscribers": acc["followers"], "views": sum(m["views"] for m in media), "videos": acc["media_count"]}
 
 
 def remove_channel(db: Session, channel: Channel) -> None:
@@ -57,8 +97,23 @@ def _snapshot(channel_id: str, info: dict) -> ChannelSnapshot:
     )
 
 
+def _channel_info(creds) -> dict:
+    """Dados do canal, com views corrigidas pela soma dos vídeos (o total do canal atrasa)."""
+    info = youtube.parse_channel(youtube.fetch_my_channel(creds))
+    if info["uploads_playlist_id"]:
+        try:
+            info["views"] = max(info["views"], youtube.fetch_total_video_views(creds, info["uploads_playlist_id"]))
+        except Exception:
+            log.exception("Falha ao somar views dos vídeos de %s", info["title"])
+    return info
+
+
 def refresh_channel_stats(db: Session, channel: Channel) -> None:
-    info = youtube.parse_channel(youtube.fetch_my_channel(get_creds(db, channel)))
+    if channel.platform == "instagram":
+        db.add(_snapshot(channel.id, _instagram_info(channel)))
+        db.commit()
+        return
+    info = _channel_info(get_creds(db, channel))
     channel.title = info["title"]
     channel.thumbnail_url = info["thumbnail_url"]
     channel.uploads_playlist_id = info["uploads_playlist_id"]
@@ -116,15 +171,25 @@ def recover_interrupted_uploads(db: Session) -> None:
     db.execute(
         update(Post)
         .where(Post.status == "uploading")
-        .values(status="failed", error="Upload interrompido (app fechado). Confira no YouTube Studio antes de tentar de novo.")
+        .values(status="failed", error="Envio interrompido (app fechado). Confira no YouTube Studio ou no Instagram antes de tentar de novo.")
     )
     db.commit()
 
 
+def _next_due_post(db: Session) -> Post | None:
+    """Próximo post da fila. No YouTube o agendamento é feito pelo próprio YouTube (envia na hora);
+    no Instagram não há agendamento pela API, então o post só sai quando chega o horário."""
+    now = utcnow()
+    for post in db.scalars(select(Post).where(Post.status == "queued").order_by(Post.created_at)).all():
+        channel = db.get(Channel, post.channel_id) if post.channel_id else None
+        if channel and channel.platform == "instagram" and post.publish_at and post.publish_at > now:
+            continue
+        return post
+    return None
+
+
 def process_next_upload(db: Session) -> bool:
-    post = db.scalars(
-        select(Post).where(Post.status == "queued").order_by(Post.created_at).limit(1)
-    ).first()
+    post = _next_due_post(db)
     if post is None:
         return False
     channel = db.get(Channel, post.channel_id) if post.channel_id else None
@@ -137,6 +202,14 @@ def process_next_upload(db: Session) -> bool:
     post.status, post.error = "uploading", None
     db.commit()
     try:
+        if channel.platform == "instagram":
+            media_id, permalink = instagram.publish_reel(
+                ig_token(channel), channel.id, Path(post.file_path), post.description or post.title
+            )
+            post.youtube_video_id, post.external_url, post.status = media_id, permalink, "uploaded"
+            log.info("Reel publicado: %s -> %s", post.title, media_id)
+            db.commit()
+            return True
         publish_at = None
         if post.publish_at and post.publish_at > utcnow() + timedelta(minutes=5):
             publish_at = post.publish_at.strftime("%Y-%m-%dT%H:%M:%S.000Z")
